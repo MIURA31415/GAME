@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQUARE BASEBALL - 3D Baseball</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Roboto:wght@400;700&display=swap');
+
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Roboto', sans-serif; user-select: none; }
+        #game-container { position: relative; width: 100vw; height: 100vh; }
+
+        /* スタート画面 */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, #0a0a1a, #1a1a3a);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 100; color: white; transition: opacity 0.5s;
+        }
+        .title-container { text-align: center; margin-bottom: 40px; }
+        .title {
+            font-family: 'Oswald', sans-serif; font-size: 5.5rem; font-style: italic; color: #FFD700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.8), 0 0 20px rgba(255, 215, 0, 0.5); margin: 0; letter-spacing: 2px;
+        }
+        .subtitle { font-family: 'Oswald', sans-serif; font-size: 1.5rem; letter-spacing: 5px; margin-top: -10px; color: #ddd; }
+        .menu-panel { background: rgba(0, 0, 0, 0.7); border: 1px solid #333; border-radius: 20px; padding: 30px 40px; width: 450px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+        .menu-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .menu-label { font-weight: bold; letter-spacing: 1px; font-size: 1.1rem; color: #aaa; }
+        .toggle-group { display: flex; background: #111; border-radius: 20px; overflow: hidden; border: 1px solid #333; }
+        .toggle-btn { padding: 10px 20px; cursor: pointer; color: #888; font-weight: bold; transition: 0.3s; }
+        .toggle-btn.active { background: white; color: black; box-shadow: 0 0 15px rgba(255,255,255,0.5); }
+        #play-btn {
+            margin-top: 30px; background: #e52b2b; color: white; border: none; padding: 15px 50px;
+            font-size: 1.5rem; font-weight: bold; border-radius: 30px; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(229, 43, 43, 0.5); transition: transform 0.1s, background 0.3s;
+        }
+        #play-btn:hover { background: #ff3b3b; transform: scale(1.05); }
+        #play-btn:active { transform: scale(0.95); }
+
+        /* ゲームUI */
+        #game-ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none; z-index: 10; }
+        .hud-panel { background: rgba(0, 0, 0, 0.6); border-radius: 10px; padding: 15px; color: white; pointer-events: auto; }
+        #pitch-info { position: absolute; top: 20px; left: 20px; display: flex; align-items: center; gap: 15px; }
+        .pitch-count { font-size: 1.5rem; font-weight: bold; }
+        .pitch-count span { font-size: 2.5rem; }
+        #score-info { position: absolute; top: 90px; left: 20px; width: 220px; }
+        .score-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9rem; color: #aaa;}
+        .score-val { color: white; font-weight: bold; font-family: 'Oswald', sans-serif; font-size: 1.1rem; }
+        .score-val.highlight { color: #FFD700; }
+        #pitch-type-display { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); text-align: center; }
+        .pitch-label { font-size: 0.8rem; color: #aaa; margin-bottom: 5px; }
+        .pitch-name { font-size: 1.5rem; font-weight: bold; text-shadow: 1px 1px 2px #000; }
+        #stop-btn {
+            position: absolute; top: 20px; right: 20px; pointer-events: auto;
+            background: rgba(255,0,0,0.6); color: white; border: 1px solid #ffaaaa; padding: 10px 20px;
+            border-radius: 20px; cursor: pointer; font-family: 'Oswald', sans-serif; font-size: 1.2rem; transition: 0.2s;
+        }
+        #stop-btn:hover { background: rgba(255,0,0,0.8); transform: scale(1.05); }
+        
+        /* センターメッセージ */
+        #center-message {
+            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+            font-family: 'Oswald', sans-serif; font-style: italic; font-weight: bold;
+            opacity: 0; transition: opacity 0.2s, transform 0.2s; text-shadow: 4px 4px 0px #000;
+            text-align: center; line-height: 1.1; white-space: nowrap;
+        }
+        .msg-dist { font-size: 4rem; color: #fff; text-shadow: 3px 3px 0px #000; display: block; }
+        .msg-miss { font-size: 7rem; color: #FFD700; }
+        .msg-hr { font-size: 7rem; color: #FF5722; }
+        .msg-outpark { font-size: 7.5rem; color: #E91E63; text-shadow: 5px 5px 0px #000, 0 0 20px rgba(233, 30, 99, 0.8); }
+        .msg-out { font-size: 7rem; color: #2196F3; }
+
+        /* リザルト画面 */
+        #result-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #080808;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 50; color: white; display: none; pointer-events: auto;
+        }
+        .result-icon { font-size: 5rem; color: #FFC107; margin-bottom: 10px; line-height: 1;}
+        .result-title { font-family: 'Oswald', sans-serif; font-size: 3.5rem; font-style: italic; margin-bottom: 30px; letter-spacing: 2px;}
+        .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 40px; width: 100%; max-width: 600px; }
+        .result-card { background: #111; border: 1px solid #1a1a1a; border-radius: 15px; padding: 25px 20px; text-align: center; }
+        .result-label { font-size: 0.75rem; color: #555; font-weight: bold; margin-bottom: 10px; letter-spacing: 1px; }
+        .result-value { font-size: 2.5rem; font-family: 'Oswald', sans-serif; font-weight: bold; }
+        .res-unit { font-size: 1.5rem; color: #888; font-family: 'Oswald', sans-serif; font-weight: bold;}
+        .text-yellow { color: #FFD700; }
+        .text-blue { color: #4fc3f7; }
+        .text-pink { color: #E91E63; }
+        .text-gray { color: #888; }
+        .result-buttons { display: flex; gap: 15px; width: 100%; max-width: 600px; }
+        .result-buttons button { flex: 1; padding: 18px; font-size: 1.1rem; font-weight: bold; border-radius: 12px; cursor: pointer; border: none; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; font-family: 'Roboto', sans-serif;}
+        #btn-try-again { background: #fff; color: #000; }
+        #btn-try-again:hover { background: #ddd; }
+        #btn-home { background: #222; color: #fff; border: 1px solid #333; }
+        #btn-home:hover { background: #333; }
+
+        /* 照準用カーソル */
+        #crosshair {
+            position: absolute; width: 30px; height: 30px; border: 3px solid red; border-radius: 50%;
+            transform: translate(-50%, -50%); pointer-events: none; display: none; z-index: 20; box-sizing: border-box;
+        }
+        #crosshair::after {
+            content: ''; position: absolute; top: 50%; left: 50%; width: 4px; height: 4px;
+            background: red; border-radius: 50%; transform: translate(-50%, -50%);
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="canvas-container" style="width: 100%; height: 100%;"></div>
+    <div id="crosshair"></div>
+
+    <div id="start-screen">
+        <div class="title-container">
+            <h1 class="title">SQUARE BASEBALL</h1>
+            <div class="subtitle">HOME RUN DERBY</div>
+        </div>
+        <div class="menu-panel">
+            <div class="menu-row" style="flex-direction: column; align-items: center; margin-bottom: 25px; border-bottom: 1px solid #333; padding-bottom: 25px;">
+                <div class="menu-label">PERSONAL BEST</div>
+                <div style="font-size: 3.5rem; font-family: 'Oswald', sans-serif; font-weight: bold; color: #4fc3f7; line-height: 1.2;">
+                    <span id="start-best">0</span>M
+                </div>
+            </div>
+            <div class="menu-row" style="margin-bottom: 0;">
+                <div class="menu-label">DIFFICULTY</div>
+                <div class="toggle-group" id="diff-toggle">
+                    <div class="toggle-btn" data-val="easy">EASY</div>
+                    <div class="toggle-btn active" data-val="normal">NORMAL</div>
+                    <div class="toggle-btn" data-val="hard">HARD</div>
+                </div>
+            </div>
+        </div>
+        <button id="play-btn">▶ PLAY BALL</button>
+    </div>
+
+    <div id="game-ui">
+        <div class="hud-panel" id="pitch-info">
+            <div class="pitch-label">PITCH</div>
+            <div class="pitch-count"><span id="ui-pitch-current">1</span> / 10</div>
+        </div>
+        <div class="hud-panel" id="score-info">
+            <div class="score-row"><span>HOME RUNS</span><span class="score-val highlight" id="ui-hr">0</span></div>
+            <div class="score-row"><span>LAST DISTANCE</span><span class="score-val" id="ui-dist">0M</span></div>
+            <div class="score-row"><span>MAX DISTANCE</span><span class="score-val highlight" id="ui-max-dist">0M</span></div>
+            <div class="score-row"><span>TOTAL DISTANCE</span><span class="score-val" id="ui-total-dist">0M</span></div>
+        </div>
+        <div class="hud-panel" id="pitch-type-display">
+            <div class="pitch-label">球種</div>
+            <div class="pitch-name" id="ui-pitch-type">-</div>
+        </div>
+        <button id="stop-btn">✖ STOP GAME</button>
+        <div id="center-message"></div>
+    </div>
+
+    <div id="result-screen">
+        <div class="result-icon">🏆</div>
+        <div class="result-title">SERIES FINISHED!</div>
+        <div class="result-grid">
+            <div class="result-card">
+                <div class="result-label">TOTAL SCORE</div>
+                <div class="result-value"><span id="res-score">0</span> <span class="res-unit" style="font-size: 1rem;">pts</span></div>
+            </div>
+            <div class="result-card">
+                <div class="result-label">MAX DISTANCE</div>
+                <div class="result-value text-yellow"><span id="res-max-dist">0</span><span class="res-unit">M</span></div>
+            </div>
+            <div class="result-card">
+                <div class="result-label">PERSONAL BEST</div>
+                <div class="result-value text-blue"><span id="res-best">0</span><span class="res-unit">M</span></div>
+            </div>
+            <div class="result-card">
+                <div class="result-label">STATUS</div>
+                <div class="result-value text-gray" id="res-status">D</div>
+            </div>
+        </div>
+        <div class="result-buttons">
+            <button id="btn-try-again"><span class="icon">↺</span> TRY AGAIN</button>
+            <button id="btn-home">HOME</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let scene, camera, renderer;
+let difficulty = 'normal';
+let gameState = 'title'; 
+
+let currentPitch = 1, homeRuns = 0, totalDistance = 0, maxDistance = 0;
+let currentPitchType = '';
+let hitResult = ''; 
+let goldenPitchIndex = 0;
+
+let ball, bat, batterGroup, pitcherGroup;
+let fielders =[];
+let strikeZoneGrid, highlightZone, strikePlane;
+let targetFielder = null; 
+let targetPredPos = new THREE.Vector3(); 
+
+let ballVelocity = new THREE.Vector3();
+let isBallInFlight = false;
+let isBallDead = false;
+
+let pitchStartTime = 0, pitchDuration = 1.0;
+let pitchAnimTime = 0;
+let isSwinging = false;
+let swingTime = 0;
+
+const ballStartPos = new THREE.Vector3(0, 1.5, -18);
+let ballTargetPos = new THREE.Vector3();
+let ballControlPoints =[];
+let highlightTimeout = null;
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let cursorWorldPos = new THREE.Vector3();
+
+const defaultCamPos = new THREE.Vector3(0, 2.5, 4);
+const defaultCamLook = new THREE.Vector3(0, 1, -10);
+
+const uiStartScreen = document.getElementById('start-screen');
+const uiGameUI = document.getElementById('game-ui');
+const uiResultScreen = document.getElementById('result-screen');
+const uiCenterMsg = document.getElementById('center-message');
+const crosshair = document.getElementById('crosshair');
+
+function loadPersonalBest() {
+    let pb = localStorage.getItem('bigSluggerBest') || 0;
+    document.getElementById('start-best').innerText = pb;
+}
+
+function init() {
+    loadPersonalBest();
+    const container = document.getElementById('canvas-container');
+    scene = new THREE.Scene();
+    
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.copy(defaultCamPos);
+    camera.lookAt(defaultCamLook);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    buildEnvironment();
+    buildCharacters();
+    buildStrikeZone();
+
+    window.addEventListener('resize', onWindowResize);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mousedown', onMouseDown);
+    setupUIEvents();
+
+    animate();
+}
+
+function setupUIEvents() {
+    document.querySelectorAll('#diff-toggle .toggle-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('#diff-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            difficulty = e.target.dataset.val;
+        });
+    });
+
+    document.getElementById('play-btn').addEventListener('click', startGame);
+    document.getElementById('stop-btn').addEventListener('click', showResult);
+    
+    document.getElementById('btn-try-again').addEventListener('click', () => {
+        uiResultScreen.style.display = 'none';
+        startGame();
+    });
+    
+    document.getElementById('btn-home').addEventListener('click', () => {
+        loadPersonalBest();
+        uiResultScreen.style.display = 'none';
+        uiStartScreen.style.display = 'flex';
+        uiStartScreen.style.opacity = '1';
+        gameState = 'title';
+    });
+}
+
+function createSign(text) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(0, 0, 1024, 256);
+    ctx.fillStyle = '#4CAF50'; 
+    ctx.font = 'bold 140px Oswald, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 512, 128);
+    const signTex = new THREE.CanvasTexture(canvas);
+    const signMat = new THREE.MeshBasicMaterial({ map: signTex });
+    const signGeom = new THREE.PlaneGeometry(100, 25);
+    const sign = new THREE.Mesh(signGeom, signMat);
+    sign.position.set(0, 25, -118);
+    return sign;
+}
+
+function buildEnvironment() {
+    // デイゲーム用の青空と明るい光に固定
+    scene.background = new THREE.Color(0x87CEEB); 
+    scene.fog = new THREE.FogExp2(scene.background, 0.003);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(20, 50, 20);
+    dirLight.castShadow = true;
+    dirLight.shadow.camera.top = 100; dirLight.shadow.camera.bottom = -100;
+    dirLight.shadow.camera.left = -100; dirLight.shadow.camera.right = 100;
+    scene.add(dirLight);
+
+    const bowlGeom = new THREE.CylinderGeometry(130, 100, 30, 64, 1, true);
+    const bowlMat = new THREE.MeshLambertMaterial({ color: 0x2c3e50, side: THREE.BackSide });
+    const bowl = new THREE.Mesh(bowlGeom, bowlMat);
+    bowl.position.set(0, 15, -22); 
+    scene.add(bowl);
+
+    const fenceGeom = new THREE.CylinderGeometry(99, 99, 5, 64, 1, true, Math.PI * 0.45, Math.PI * 1.1);
+    const fenceMat = new THREE.MeshLambertMaterial({ color: 0x1b5e20, side: THREE.DoubleSide });
+    const fence = new THREE.Mesh(fenceGeom, fenceMat);
+    fence.position.set(0, 2.5, -22);
+    scene.add(fence);
+
+    const signStadium = createSign('SQUARE STADIUM');
+    scene.add(signStadium);
+
+    buildAudience();
+
+    const grass = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), new THREE.MeshLambertMaterial({ color: 0x2e7d32 }));
+    grass.rotation.x = -Math.PI / 2; grass.receiveShadow = true; scene.add(grass);
+
+    const dirtMat = new THREE.MeshLambertMaterial({ color: 0x8d6e63 });
+    const mound = new THREE.Mesh(new THREE.CircleGeometry(3, 32), dirtMat);
+    mound.rotation.x = -Math.PI / 2; mound.position.set(0, 0.02, -18); scene.add(mound);
+
+    const homeDirt = new THREE.Mesh(new THREE.CircleGeometry(4, 32), dirtMat);
+    homeDirt.rotation.x = -Math.PI / 2; homeDirt.position.set(0, 0.02, 0); scene.add(homeDirt);
+
+    const baseDirtGeom = new THREE.CircleGeometry(2.5, 32);
+    const b1 = new THREE.Mesh(baseDirtGeom, dirtMat); b1.rotation.x = -Math.PI/2; b1.position.set(19.4, 0.02, -19.4); scene.add(b1);
+    const b2 = new THREE.Mesh(baseDirtGeom, dirtMat); b2.rotation.x = -Math.PI/2; b2.position.set(0, 0.02, -38.8); scene.add(b2);
+    const b3 = new THREE.Mesh(baseDirtGeom, dirtMat); b3.rotation.x = -Math.PI/2; b3.position.set(-19.4, 0.02, -19.4); scene.add(b3);
+
+    const homePlate = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    homePlate.rotation.x = -Math.PI / 2; homePlate.rotation.z = Math.PI / 4; homePlate.position.set(0, 0.03, 0); scene.add(homePlate);
+
+    const bbGeom = new THREE.BufferGeometry();
+    const bbVerts =[
+        -0.45, 0.04, -1.0,  -0.45, 0.04, 1.0,
+        -0.45, 0.04, 1.0,   -1.5, 0.04, 1.0,
+        -1.5, 0.04, 1.0,    -1.5, 0.04, -1.0,
+        -1.5, 0.04, -1.0,   -0.45, 0.04, -1.0,
+         0.45, 0.04, -1.0,   0.45, 0.04, 1.0,
+         0.45, 0.04, 1.0,    1.5, 0.04, 1.0,
+         1.5, 0.04, 1.0,     1.5, 0.04, -1.0,
+         1.5, 0.04, -1.0,    0.45, 0.04, -1.0,
+    ];
+    bbGeom.setAttribute('position', new THREE.Float32BufferAttribute(bbVerts, 3));
+    const bbLines = new THREE.LineSegments(bbGeom, new THREE.LineBasicMaterial({ color: 0xffffff }));
+    scene.add(bbLines);
+
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const lineGeom = new THREE.PlaneGeometry(0.3, 140);
+    const line1R = new THREE.Mesh(lineGeom, lineMat);
+    line1R.rotation.x = -Math.PI / 2; line1R.rotation.z = -Math.PI / 4; 
+    line1R.position.set(49.5, 0.03, -49.5); scene.add(line1R);
+    
+    const line3L = new THREE.Mesh(lineGeom, lineMat);
+    line3L.rotation.x = -Math.PI / 2; line3L.rotation.z = Math.PI / 4; 
+    line3L.position.set(-49.5, 0.03, -49.5); scene.add(line3L);
+
+    const poleMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    const lPole = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 40), poleMat); lPole.position.set(-70.7, 20, -70.7); scene.add(lPole);
+    const rPole = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 40), poleMat); rPole.position.set(70.7, 20, -70.7); scene.add(rPole);
+}
+
+function buildAudience() {
+    const audienceCount = 20000;
+    const audGeom = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+    const audMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+    const audMesh = new THREE.InstancedMesh(audGeom, audMat, audienceCount);
+
+    const dummy = new THREE.Object3D();
+    const color = new THREE.Color();
+    const colors = [
+        0x1f77b4, 0xff7f0e, 0x2ca02c, 0xd62728, 0x9467bd, 0x8c564b, 
+        0xe377c2, 0x7f7f7f, 0xbcbd22, 0x17becf, 0xffffff, 0x333333,
+        0x000000, 0x0055ff, 0xff0055, 0xffff00
+    ];
+
+    let idx = 0;
+    for (let i = 0; i < 35000; i++) {
+        if (idx >= audienceCount) break;
+        
+        const R = 100 + Math.random() * 28;
+        const theta = Math.random() * Math.PI * 2;
+        const x = R * Math.cos(theta);
+        const z = -22 + R * Math.sin(theta);
+        
+        let y = 0;
+        if (R < 112) {
+            y = 5 + (R - 100) * 0.8;
+        } else if (R > 115) {
+            y = 15 + (R - 115) * 1.0;
+        } else {
+            continue; 
+        }
+        
+        dummy.position.set(x, y + 0.3 + Math.random()*0.2, z);
+        dummy.rotation.set((Math.random()-0.5)*0.2, -theta - Math.PI/2, (Math.random()-0.5)*0.2);
+        dummy.updateMatrix();
+        audMesh.setMatrixAt(idx, dummy.matrix);
+        
+        color.setHex(colors[Math.floor(Math.random() * colors.length)]);
+        audMesh.setColorAt(idx, color);
+        idx++;
+    }
+    audMesh.count = idx;
+    scene.add(audMesh);
+}
+
+function createBlockHuman(colorMain, colorSub) {
+    const group = new THREE.Group();
+    const matMain = new THREE.MeshLambertMaterial({ color: colorMain });
+    const matSub = new THREE.MeshLambertMaterial({ color: colorSub });
+    const matSkin = new THREE.MeshLambertMaterial({ color: 0xffccaa });
+
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), matSkin); head.position.y = 1.8;
+    const hat = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.2, 0.62), matSub); hat.position.y = 2.1;
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.05, 0.4), matSub); brim.position.set(0, 2.0, -0.4);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.2, 0.5), matMain); body.position.y = 0.9;
+    const legL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.9, 0.35), new THREE.MeshLambertMaterial({color: 0xeeeeee})); legL.position.set(-0.25, 0.45, 0);
+    const legR = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.9, 0.35), new THREE.MeshLambertMaterial({color: 0xeeeeee})); legR.position.set(0.25, 0.45, 0);
+    
+    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.8, 0.3), matMain); armL.position.set(-0.6, 1.1, 0);
+    const armR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.8, 0.3), matMain); armR.position.set(0.6, 1.1, 0);
+    
+    group.add(head, hat, brim, body, legL, legR, armL, armR);
+    group.userData = { armL, armR, legL };
+    group.children.forEach(c => { c.castShadow = true; c.receiveShadow = true; });
+    return group;
+}
+
+function buildCharacters() {
+    pitcherGroup = createBlockHuman(0x1976D2, 0x0D47A1);
+    pitcherGroup.position.set(0, 0, -18); scene.add(pitcherGroup);
+
+    batterGroup = createBlockHuman(0xD32F2F, 0xB71C1C);
+    batterGroup.position.set(0.8, 0, 0); batterGroup.rotation.y = -Math.PI / 2;
+    
+    const batGeo = new THREE.CylinderGeometry(0.03, 0.05, 1.2, 16); batGeo.translate(0, 0.6, 0);
+    bat = new THREE.Mesh(batGeo, new THREE.MeshLambertMaterial({ color: 0xe6c280 }));
+    bat.position.set(0, 1.2, 0.4); bat.rotation.set(Math.PI / 4, 0, -Math.PI / 6);
+    batterGroup.add(bat);
+    
+    batterGroup.children.forEach(c => { if(c.material) { c.material.transparent = true; c.material.opacity = 0.5; } });
+    scene.add(batterGroup);
+
+    const pos = [ {x: 15, z: -20}, {x: 8, z: -38}, {x: -8, z: -38}, {x: -15, z: -20}, {x: -35, z: -65}, {x: 0, z: -75}, {x: 35, z: -65} ];
+    pos.forEach(p => {
+        const fielder = createBlockHuman(0x1976D2, 0x0D47A1);
+        fielder.position.set(p.x, 0, p.z);
+        scene.add(fielder); fielders.push(fielder);
+    });
+
+    ball = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 16), new THREE.MeshPhongMaterial({ color: 0xffffff }));
+    ball.castShadow = true; ball.visible = false; scene.add(ball);
+}
+
+function buildStrikeZone() {
+    const gridGeo = new THREE.BufferGeometry();
+    const vertices =[];
+    const w = 0.6, h = 0.8, cx = 0, cy = 1.0;
+    
+    for(let i=0; i<=3; i++) {
+        let x = cx - w/2 + (w/3)*i; vertices.push(x, cy - h/2, 0, x, cy + h/2, 0);
+        let y = cy - h/2 + (h/3)*i; vertices.push(cx - w/2, y, 0, cx + w/2, y, 0);
+    }
+    gridGeo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    strikeZoneGrid = new THREE.LineSegments(gridGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
+    strikeZoneGrid.position.z = 0.5; scene.add(strikeZoneGrid);
+
+    highlightZone = new THREE.Mesh(new THREE.PlaneGeometry(w/3, h/3), new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
+    highlightZone.position.z = 0.5; highlightZone.visible = false; scene.add(highlightZone);
+
+    strikePlane = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshBasicMaterial({ visible: false }));
+    strikePlane.position.z = 0.5; scene.add(strikePlane);
+}
+
+function startGame() {
+    uiStartScreen.style.opacity = '0';
+    setTimeout(() => {
+        uiStartScreen.style.display = 'none';
+        uiGameUI.style.display = 'block';
+        
+        currentPitch = 1; homeRuns = 0; totalDistance = 0; maxDistance = 0;
+        goldenPitchIndex = Math.floor(Math.random() * 10) + 1;
+        
+        updateScoreUI();
+        prepareNextPitch();
+    }, 500);
+}
+
+function prepareNextPitch() {
+    if (currentPitch > 10) { showResult(); return; }
+
+    gameState = 'ready';
+    ball.visible = false; isBallInFlight = false; isBallDead = false; highlightZone.visible = false;
+    
+    // 投球前はカーソルを表示
+    crosshair.style.display = 'block';
+    
+    if(highlightTimeout) clearTimeout(highlightTimeout);
+    
+    document.getElementById('ui-pitch-current').innerText = currentPitch;
+    document.getElementById('ui-pitch-type').innerText = '-';
+    
+    camera.position.copy(defaultCamPos);
+    camera.lookAt(defaultCamLook);
+
+    batterGroup.rotation.y = -Math.PI / 2;
+    bat.rotation.z = Math.PI / 4;
+    pitcherGroup.userData.legL.position.set(-0.25, 0.45, 0);
+    pitcherGroup.userData.legL.position.z = 0;
+    pitcherGroup.userData.armR.rotation.x = 0;
+    isSwinging = false;
+    targetFielder = null;
+
+    fielders.forEach(f => {
+        if(f.userData.startX !== undefined) {
+            f.position.set(f.userData.startX, 0, f.userData.startZ);
+        } else {
+            f.userData.startX = f.position.x; f.userData.startZ = f.position.z;
+        }
+    });
+
+    setTimeout(throwPitch, 1500);
+}
+
+function throwPitch() {
+    if (gameState !== 'ready') return;
+    gameState = 'pitching_windup';
+    pitchAnimTime = 0;
+}
+
+function determinePitch() {
+    const types =[];
+    if (difficulty === 'easy') types.push('slow_straight');
+    else if (difficulty === 'normal') types.push('slow_straight', 'slider', 'changeup');
+    else types.push('fast_straight', 'slider', 'changeup');
+    
+    currentPitchType = types[Math.floor(Math.random() * types.length)];
+    
+    const col = Math.floor(Math.random() * 3);
+    const row = Math.floor(Math.random() * 3);
+    const targetX = -0.2 + col * 0.2;
+    const targetY = 0.73 + row * 0.26;
+    ballTargetPos.set(targetX, targetY, 0.5);
+    
+    highlightZone.position.set(targetX, targetY, 0.51);
+    
+    let typeName = "";
+    if(currentPitchType === 'slow_straight') {
+        typeName = "スローボール"; pitchDuration = 0.8;
+        ballControlPoints = [ballStartPos, ballTargetPos];
+        highlightZone.visible = true;
+    } else if(currentPitchType === 'fast_straight') {
+        typeName = "ストレート"; pitchDuration = 0.45;
+        ballControlPoints = [ballStartPos, ballTargetPos];
+        highlightZone.visible = true;
+    } else if(currentPitchType === 'slider') {
+        typeName = "スライダー"; pitchDuration = 0.9;
+        const midPoint = new THREE.Vector3(
+            (ballStartPos.x + ballTargetPos.x) / 2 - 2.5,
+            (ballStartPos.y + ballTargetPos.y) / 2,
+            (ballStartPos.z + ballTargetPos.z) / 2
+        );
+        ballControlPoints = [ballStartPos, midPoint, ballTargetPos];
+        highlightTimeout = setTimeout(() => { highlightZone.visible = true; }, 400);
+    } else if(currentPitchType === 'changeup') {
+        typeName = "チェンジアップ"; pitchDuration = 1.6;
+        const midPoint = new THREE.Vector3(
+            (ballStartPos.x + ballTargetPos.x) / 2,
+            (ballStartPos.y + ballTargetPos.y) / 2 + 1.2, // 山なり軌道
+            (ballStartPos.z + ballTargetPos.z) / 2
+        );
+        ballControlPoints = [ballStartPos, midPoint, ballTargetPos];
+        highlightTimeout = setTimeout(() => { highlightZone.visible = true; }, 400);
+    }
+    
+    // ゴールデンボール
+    if (currentPitch === goldenPitchIndex) {
+        ball.material.color.setHex(0xFFD700);
+        ball.material.emissive.setHex(0x332200);
+    } else {
+        ball.material.color.setHex(0xffffff);
+        ball.material.emissive.setHex(0x000000);
+    }
+
+    document.getElementById('ui-pitch-type').innerText = typeName;
+}
+
+function getBezierPoint(t, p0, p1, p2) {
+    const x = (1-t)*(1-t)*p0.x + 2*(1-t)*t*p1.x + t*t*p2.x;
+    const y = (1-t)*(1-t)*p0.y + 2*(1-t)*t*p1.y + t*t*p2.y;
+    const z = (1-t)*(1-t)*p0.z + 2*(1-t)*t*p1.z + t*t*p2.z;
+    return new THREE.Vector3(x, y, z);
+}
+
+function onMouseMove(event) {
+    if (gameState === 'title' || gameState === 'result') return;
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(strikePlane);
+    if (intersects.length > 0) {
+        cursorWorldPos.copy(intersects[0].point);
+        crosshair.style.left = event.clientX + 'px';
+        crosshair.style.top = event.clientY + 'px';
+    }
+}
+
+function onMouseDown(event) {
+    if (gameState === 'pitching') swingBat();
+}
+
+function swingBat() {
+    if (isSwinging || hitResult !== '') return;
+    isSwinging = true;
+    swingTime = 0;
+    
+    // スイングした瞬間にカーソルを非表示
+    crosshair.style.display = 'none';
+    
+    evaluateHit();
+}
+
+function evaluateHit() {
+    // 実際の時間をもとに、ボールが手元を通過するタイミングからのズレ（秒）を計算
+    const currentTime = performance.now();
+    const expectedHitTime = pitchStartTime + pitchDuration * 1000;
+    const timeDiff = Math.abs(currentTime - expectedHitTime) / 1000;
+
+    const distXY = Math.sqrt(Math.pow(ball.position.x - cursorWorldPos.x, 2) + Math.pow(ball.position.y - cursorWorldPos.y, 2));
+
+    hitResult = 'MISS';
+
+    // タイミングによる厳密な判定
+    if (timeDiff <= 0.12) { 
+        if (timeDiff <= 0.05) { 
+            // 完璧なタイミング（0.05秒以内）
+            if (distXY < 0.12) { 
+                hitResult = 'HOME RUN'; // 芯で捉えた
+            } else if (distXY < 0.25) { 
+                hitResult = 'IN_PLAY';  // 少し外した
+            } else if (distXY < 0.35) {
+                hitResult = 'FOUL';     // さらに外した
+            }
+        } else {
+            // 少しタイミングがずれた場合（0.05秒〜0.12秒）
+            if (distXY < 0.15) { 
+                hitResult = 'POP_FLY';  // 芯に近いがタイミングが悪く打ち上げる
+            } else if (distXY < 0.35) { 
+                hitResult = 'FOUL';     // 外れていてファウル
+            }
+        }
+    }
+    processHitResult();
+}
+
+function processHitResult() {
+    gameState = 'flying';
+    highlightZone.visible = false;
+
+    if (hitResult === 'MISS' || hitResult === 'FOUL') {
+        showMessage(hitResult);
+    }
+
+    if (hitResult === 'MISS') {
+        // ミス時はボールがすぐ消えるので、待機時間も短縮してテンポよく
+        setTimeout(endPitch, 1000);
+    } else if (hitResult === 'FOUL') {
+        ballVelocity.set((Math.random()-0.5)*10, 15, 10);
+        isBallInFlight = true;
+    } else {
+        isBallInFlight = true;
+        ball.material.opacity = 1.0;
+        ball.visible = true; // キャッチャー手前で消えていた場合も復活させる
+        
+        let speed, angleY, angleX;
+
+        // ポップフライ（真上に高く上がるだけ）
+        if (hitResult === 'POP_FLY') {
+            speed = 15 + Math.random() * 5;
+            angleY = THREE.MathUtils.degToRad(60 + Math.random() * 20); 
+            angleX = THREE.MathUtils.degToRad((Math.random() - 0.5) * 30); 
+            const dx = ball.position.x - cursorWorldPos.x;
+            angleX += dx * 0.8;
+        } else {
+            // 飛びすぎを調整（通常で100〜120mくらい）
+            speed = hitResult === 'HOME RUN' ? 20 + Math.random() * 4 : 10 + Math.random() * 6;
+            if (currentPitch === goldenPitchIndex) speed *= 1.2; 
+            
+            angleY = THREE.MathUtils.degToRad(30 + Math.random() * 15); 
+            angleX = THREE.MathUtils.degToRad((Math.random() - 0.5) * 40); 
+            
+            const dx = ball.position.x - cursorWorldPos.x;
+            angleX += dx * 0.8;
+        }
+
+        ballVelocity.x = speed * Math.cos(angleY) * Math.sin(angleX);
+        ballVelocity.y = speed * Math.sin(angleY);
+        ballVelocity.z = -speed * Math.cos(angleY) * Math.cos(angleX);
+
+        // --- 着弾予測地点のシミュレーション ---
+        let tempY = ball.position.y;
+        let tempVy = ballVelocity.y;
+        let tempX = ball.position.x;
+        let tempZ = ball.position.z;
+        let tempVx = ballVelocity.x;
+        let tempVz = ballVelocity.z;
+        const simDt = 0.05; 
+        
+        while(tempY > 0.07) {
+            tempVy -= 3.5 * simDt;
+            const drag = 1.0 - (0.015 * simDt);
+            tempVx *= drag;
+            tempVz *= drag;
+            tempX += tempVx * simDt;
+            tempY += tempVy * simDt;
+            tempZ += tempVz * simDt;
+            if (tempY <= 0.07) break;
+            
+            const distC = Math.sqrt(tempX*tempX + (tempZ+22)*(tempZ+22));
+            if (distC >= 99 && tempZ < -22) {
+                let groundY = 5 + (distC - 100) * 0.8;
+                if (distC >= 115 && distC <= 130) groundY = 15 + (distC - 115) * 1.0;
+                else if (distC > 130) groundY = 0.07;
+                
+                if (distC > 128 && distC < 132 && tempY <= 30) break; 
+                if (tempY <= groundY) break;
+            }
+        }
+        targetPredPos.set(tempX, 0, tempZ);
+
+        let minDist = Infinity;
+        fielders.forEach(f => {
+            const d = Math.sqrt((tempX - f.position.x)**2 + (tempZ - f.position.z)**2);
+            if (d < minDist) { minDist = d; targetFielder = f; }
+        });
+    }
+}
+
+function showMessage(text, dist = null) {
+    let html = text;
+    if (dist !== null) {
+        html += `<br><span class="msg-dist">${dist}M</span>`;
+    }
+    uiCenterMsg.innerHTML = html;
+    uiCenterMsg.className = '';
+    if(text === 'MISS' || text === 'FOUL') uiCenterMsg.classList.add('msg-miss');
+    if(text === 'HOME RUN') uiCenterMsg.classList.add('msg-hr');
+    if(text === 'OUT OF THE PARK') uiCenterMsg.classList.add('msg-outpark');
+    if(text === 'OUT') uiCenterMsg.classList.add('msg-out');
+    
+    uiCenterMsg.style.opacity = '1';
+    uiCenterMsg.style.transform = 'translate(-50%, -50%) scale(1.2)';
+    setTimeout(() => { uiCenterMsg.style.transform = 'translate(-50%, -50%) scale(1)'; }, 100);
+    setTimeout(() => { uiCenterMsg.style.opacity = '0'; }, 3000);
+}
+
+function endPitch() {
+    currentPitch++;
+    hitResult = '';
+    prepareNextPitch();
+}
+
+function processHitEnd(distFromHome) {
+    if (hitResult !== 'FOUL') {
+        const cx = 0, cz = -22;
+        const distFromCenter = Math.sqrt(Math.pow(ball.position.x - cx, 2) + Math.pow(ball.position.z - cz, 2));
+        const isFair = Math.abs(ball.position.x) <= Math.abs(ball.position.z) + 1.0;
+        const distInt = Math.floor(distFromHome);
+        
+        if (distFromCenter >= 99 && isFair && ball.position.z < -22) {
+            
+            // 場外ホームラン（距離約130m以上の球場外）の判定
+            if (distFromCenter > 130) {
+                hitResult = 'OUT OF THE PARK';
+                showMessage('OUT OF THE PARK', distInt);
+            } else {
+                hitResult = 'HOME RUN';
+                showMessage('HOME RUN', distInt);
+            }
+            
+            homeRuns++;
+            document.getElementById('ui-hr').innerText = homeRuns;
+            
+            totalDistance += distInt;
+            if (distInt > maxDistance) maxDistance = distInt;
+            document.getElementById('ui-dist').innerText = distInt + 'M';
+        } else {
+            hitResult = 'OUT';
+            showMessage('OUT');
+            document.getElementById('ui-dist').innerText = '0M';
+        }
+        updateScoreUI();
+    }
+    setTimeout(endPitch, 3500);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    const dt = 0.016;
+
+    if (gameState === 'pitching_windup') {
+        pitchAnimTime += dt;
+        let t = pitchAnimTime / 0.8;
+        
+        if (t < 0.5) {
+            let pt = t / 0.5;
+            pitcherGroup.userData.legL.position.y = 0.45 + pt * 0.6;
+            pitcherGroup.userData.armR.rotation.x = -Math.PI * pt;
+        } else {
+            let pt = (t - 0.5) / 0.5;
+            pitcherGroup.userData.legL.position.y = 1.05 - pt * 0.6;
+            pitcherGroup.userData.legL.position.z = pt * 0.5;
+            pitcherGroup.userData.armR.rotation.x = -Math.PI + pt * Math.PI * 1.2;
+        }
+
+        if (t >= 1.0) {
+            gameState = 'pitching';
+            determinePitch();
+            ball.position.copy(ballStartPos);
+            ball.visible = true; ball.material.opacity = 1.0; ball.material.transparent = false;
+            pitchStartTime = performance.now();
+            
+            setTimeout(() => {
+                pitcherGroup.userData.legL.position.set(-0.25, 0.45, 0);
+                pitcherGroup.userData.armR.rotation.x = 0;
+            }, 500);
+        }
+    }
+
+    if (isSwinging) {
+        swingTime += dt;
+        const duration = 0.25; 
+        let t = Math.min(swingTime / duration, 1.0);
+        
+        batterGroup.rotation.y = -Math.PI / 2 + t * Math.PI; 
+        bat.rotation.z = Math.PI / 4 + t * Math.PI * 0.8;
+        
+        if (swingTime > 1.0) {
+            isSwinging = false;
+            batterGroup.rotation.y = -Math.PI / 2;
+            bat.rotation.z = Math.PI / 4;
+        }
+    }
+
+    if (gameState === 'pitching') {
+        let t = (performance.now() - pitchStartTime) / (pitchDuration * 1000);
+        
+        // 振り遅れ用の猶予時間 (1.0を超えても少しだけ待つ)
+        if (t >= 1.2) { 
+            t = 1.2; 
+            if (!isSwinging && hitResult === '') {
+                hitResult = 'MISS';
+                processHitResult();
+            }
+        } else {
+            let moveT = Math.min(t, 1.0); 
+            if (ballControlPoints.length === 2) {
+                ball.position.lerpVectors(ballControlPoints[0], ballControlPoints[1], moveT);
+            } else if (ballControlPoints.length === 3) {
+                ball.position.copy(getBezierPoint(moveT, ballControlPoints[0], ballControlPoints[1], ballControlPoints[2]));
+            }
+            
+            // 手元まで来たらキャッチャーが捕球したようにボールを消す
+            if (t >= 1.0 && hitResult === '') {
+                ball.visible = false;
+            } else {
+                ball.visible = true;
+            }
+        }
+    }
+
+    if (gameState === 'flying' && isBallInFlight) {
+        
+        if (!isBallDead) {
+            ballVelocity.y -= 3.5 * dt; 
+            const drag = 1.0 - (0.015 * dt); 
+            ballVelocity.x *= drag;
+            ballVelocity.z *= drag;
+            
+            ball.position.x += ballVelocity.x * dt;
+            ball.position.y += ballVelocity.y * dt;
+            ball.position.z += ballVelocity.z * dt;
+
+            const cx = 0, cz = -22;
+            const distFromCenter = Math.sqrt(Math.pow(ball.position.x - cx, 2) + Math.pow(ball.position.z - cz, 2));
+            const distFromHome = Math.sqrt(ball.position.x*ball.position.x + ball.position.z*ball.position.z);
+            
+            let groundY = 0.07;
+            if (distFromCenter >= 99 && ball.position.z < -22) {
+                if (distFromCenter < 112) {
+                    groundY = 5 + (distFromCenter - 100) * 0.8; 
+                } else if (distFromCenter >= 115 && distFromCenter <= 130) {
+                    groundY = 15 + (distFromCenter - 115) * 1.0; 
+                } else if (distFromCenter > 130) {
+                    groundY = 0.07; // 場外の地面
+                } else {
+                    groundY = 5 + 12 * 0.8; 
+                }
+            }
+
+            // 外壁直撃で止まる
+            if (distFromCenter > 128 && distFromCenter < 132 && ball.position.y <= 30 && ball.position.z < -22) {
+                if (!isBallDead) {
+                    ballVelocity.set(0, 0, 0);
+                    isBallDead = true;
+                    processHitEnd(distFromHome);
+                }
+            }
+
+            // 床や客席への着弾
+            if (ball.position.y <= groundY && !isBallDead) {
+                ball.position.y = groundY;
+                ballVelocity.y *= -0.2;
+                ballVelocity.x *= 0.5;
+                ballVelocity.z *= 0.5;
+                
+                const speedSq = ballVelocity.x*ballVelocity.x + ballVelocity.y*ballVelocity.y + ballVelocity.z*ballVelocity.z;
+                if (speedSq < 1.0) {
+                    ballVelocity.set(0,0,0);
+                    isBallDead = true;
+                    processHitEnd(distFromHome);
+                }
+            }
+
+            // バックネット
+            if (ball.position.z > 0 && distFromHome >= 20) {
+                if (!isBallDead) {
+                    ballVelocity.set(0, 0, 0);
+                    isBallDead = true;
+                    processHitEnd(distFromHome);
+                }
+            }
+
+            // 野手は「着弾予測地点」へ移動
+            if (targetFielder && hitResult !== 'FOUL' && !isBallDead) {
+                const dx = targetPredPos.x - targetFielder.position.x;
+                const dz = targetPredPos.z - targetFielder.position.z;
+                const distToPred = Math.sqrt(dx*dx + dz*dz);
+                
+                if (distToPred > 0.5) {
+                    const speed = 12.0;
+                    targetFielder.position.x += (dx / distToPred) * speed * dt;
+                    targetFielder.position.z += (dz / distToPred) * speed * dt;
+                }
+
+                const ballDx = ball.position.x - targetFielder.position.x;
+                const ballDz = ball.position.z - targetFielder.position.z;
+                const distToBall = Math.sqrt(ballDx*ballDx + ballDz*ballDz);
+                
+                if (distToBall < 1.5 && ball.position.y < 3.0 && distFromCenter < 98) {
+                    isBallDead = true;
+                    ballVelocity.set(0,0,0);
+                    processHitEnd(distFromHome);
+                }
+            }
+        }
+
+        // カメラは球場内(-90)に留まり、着弾後もボールを追従し続ける
+        if (hitResult !== 'FOUL') {
+            const targetCamPos = new THREE.Vector3(ball.position.x * 0.4, 5 + ball.position.y * 0.3, ball.position.z + 20);
+            targetCamPos.z = Math.max(Math.min(targetCamPos.z, 5), -90);
+            targetCamPos.x = Math.max(Math.min(targetCamPos.x, 40), -40);
+            camera.position.lerp(targetCamPos, 0.03);
+            camera.lookAt(ball.position);
+        }
+    }
+
+    renderer.render(scene, camera);
+}
+
+function updateScoreUI() {
+    document.getElementById('ui-max-dist').innerText = maxDistance + 'M';
+    document.getElementById('ui-total-dist').innerText = totalDistance + 'M';
+}
+
+function showResult() {
+    gameState = 'result';
+    uiGameUI.style.display = 'none';
+    crosshair.style.display = 'none';
+    if(highlightTimeout) clearTimeout(highlightTimeout);
+    
+    let personalBest = localStorage.getItem('bigSluggerBest') || 0;
+    personalBest = parseInt(personalBest, 10);
+    if (maxDistance > personalBest) {
+        personalBest = maxDistance;
+        localStorage.setItem('bigSluggerBest', personalBest);
+    }
+
+    const totalScore = (totalDistance * 15) + (homeRuns * 2000);
+    let status = 'E';
+    if (totalScore >= 35000) status = 'S';
+    else if (totalScore >= 25000) status = 'A';
+    else if (totalScore >= 15000) status = 'B';
+    else if (totalScore >= 8000) status = 'C';
+    else if (totalScore >= 3000) status = 'D';
+
+    document.getElementById('res-score').innerText = totalScore;
+    document.getElementById('res-max-dist').innerText = maxDistance;
+    document.getElementById('res-best').innerText = personalBest;
+    document.getElementById('res-status').innerText = status;
+    
+    uiResultScreen.style.display = 'flex';
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
